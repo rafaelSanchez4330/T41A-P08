@@ -13,6 +13,8 @@ class TestDatabase(unittest.TestCase):
 
     # 🔍 JOIN queries
     def test_customer_orders_join(self):
+        self.cur.execute("SET enable_hashjoin = OFF;")
+        self.cur.execute("SET enable_mergejoin = OFF;")
         self.cur.execute("""
             EXPLAIN ANALYZE
             SELECT c.name, o.order_date
@@ -23,6 +25,8 @@ class TestDatabase(unittest.TestCase):
         self.assertIn("Nested Loop", plan)
 
     def test_order_products_join(self):
+        self.cur.execute("SET enable_hashjoin = OFF;")
+        self.cur.execute("SET enable_mergejoin = OFF;")
         self.cur.execute("""
             EXPLAIN ANALYZE
             SELECT o.id, p.name, oi.quantity
@@ -34,6 +38,8 @@ class TestDatabase(unittest.TestCase):
         self.assertIn("Nested Loop", plan)
 
     def test_total_spent_query(self):
+         self.cur.execute("SET enable_hashjoin = OFF;")
+        self.cur.execute("SET enable_mergejoin = OFF;")
         self.cur.execute("""
             SELECT c.name, SUM(p.price * oi.quantity)
             FROM customers c
