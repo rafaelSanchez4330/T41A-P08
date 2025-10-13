@@ -55,7 +55,7 @@ class TestDatabase(unittest.TestCase):
 
         # UNIQUE on email
         with self.assertRaises(psycopg2.errors.UniqueViolation):
-            self.cur.execute("INSERT INTO customers (name, email, city, signup_date) VALUES ('Test', 'alice@example.com', 'TestCity', '2023-01-01');")
+            self.cur.execute("INSERT INTO customers (name, email, city, signup_date) VALUES ('Test', 'yazMAX456@gmail.com', 'TestCity', '2023-01-01');")
             self.conn.commit()
         self.conn.rollback()
 
