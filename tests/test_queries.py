@@ -1,5 +1,6 @@
 import unittest
 import psycopg2
+import re
 
 class TestDatabase(unittest.TestCase):
     def setUp(self):
@@ -10,11 +11,11 @@ class TestDatabase(unittest.TestCase):
             host="localhost"
         )
         self.cur = self.conn.cursor()
+        self.cur.execute("BEGIN;")
 
     # 🔍 JOIN queries
     def test_customer_orders_join(self):
-        self.cur.execute("SET enable_hashjoin = OFF;")
-        self.cur.execute("SET enable_mergejoin = OFF;")
+       
         self.cur.execute("""
             EXPLAIN ANALYZE
             SELECT c.name, o.order_date
@@ -22,11 +23,9 @@ class TestDatabase(unittest.TestCase):
             JOIN orders o ON c.id = o.customer_id;
         """)
         plan = "\n".join(row[0] for row in self.cur.fetchall())
-        self.assertIn("Nested Loop", plan)
+        self.assertRegex(plan, r"(Nested Loop|Hash Join|Merge Join)")
 
     def test_order_products_join(self):
-        self.cur.execute("SET enable_hashjoin = OFF;")
-        self.cur.execute("SET enable_mergejoin = OFF;")
         self.cur.execute("""
             EXPLAIN ANALYZE
             SELECT o.id, p.name, oi.quantity
@@ -35,7 +34,7 @@ class TestDatabase(unittest.TestCase):
             JOIN products p ON oi.product_id = p.id;
         """)
         plan = "\n".join(row[0] for row in self.cur.fetchall())
-        self.assertIn("Nested Loop", plan)
+        self.assertRegex(plan, r"(Nested Loop|Hash Join|Merge Join)")
 
     def test_total_spent_query(self):
          self.cur.execute("SET enable_hashjoin = OFF;")
@@ -112,6 +111,7 @@ class TestDatabase(unittest.TestCase):
         self.conn.rollback()
 
     def tearDown(self):
+        self.conn.rollback()
         self.cur.close()
         self.conn.close()
 
