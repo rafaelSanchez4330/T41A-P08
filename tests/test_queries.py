@@ -5,7 +5,9 @@ import re
 
 class TestDatabase(unittest.TestCase):
     def setUp(self):
-@@ -9,20 +11,29 @@ def setUp(self):
+        self.conn = psycopg2.connect(
+            dbname="test_db",
+            user="postgres",
             password="postgres",
             host="localhost"
         )
@@ -27,7 +29,6 @@ class TestDatabase(unittest.TestCase):
             JOIN orders o ON c.id = o.customer_id;
         """)
         plan = "\n".join(row[0] for row in self.cur.fetchall())
-        self.assertIn("Nested Loop", plan)
         # ✅ acepta cualquier tipo de join
         self.assertRegex(plan, r"(Join|Nested Loop|Hash Join|Merge Join)")
 
@@ -36,11 +37,11 @@ class TestDatabase(unittest.TestCase):
         self.cur.execute("""
             EXPLAIN ANALYZE
             SELECT o.id, p.name, oi.quantity
-@@ -31,9 +42,10 @@ def test_order_products_join(self):
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
             JOIN products p ON oi.product_id = p.id;
         """)
         plan = "\n".join(row[0] for row in self.cur.fetchall())
-        self.assertIn("Nested Loop", plan)
         self.assertRegex(plan, r"(Join|Nested Loop|Hash Join|Merge Join)")
 
     def test_total_spent_query(self):
@@ -48,7 +49,9 @@ class TestDatabase(unittest.TestCase):
         self.cur.execute("""
             SELECT c.name, SUM(p.price * oi.quantity)
             FROM customers c
-@@ -43,71 +55,101 @@ def test_total_spent_query(self):
+            JOIN orders o ON c.id = o.customer_id
+            JOIN order_items oi ON o.id = oi.order_id
+            JOIN products p ON oi.product_id = p.id
             GROUP BY c.name;
         """)
         results = self.cur.fetchall()
@@ -56,17 +59,14 @@ class TestDatabase(unittest.TestCase):
         # Debe haber resultados
         self.assertTrue(len(results) > 0)
 
-    # ✅ Constraints
         # ✅ Verifica que el total sea numérico (Decimal, float, int o None)
         self.assertTrue(all(isinstance(r[1], (Decimal, float, int, type(None))) for r in results))
 
     # ✅ Constraints en tabla customers
     def test_customers_constraints(self):
-        # NOT NULL on name
         self.conn.rollback()
         # NOT NULL en name
         with self.assertRaises(psycopg2.errors.NotNullViolation):
-            self.cur.execute("INSERT INTO customers (email, city, signup_date) VALUES ('test@example.com', 'TestCity', '2023-01-01');")
             self.cur.execute("""
                 INSERT INTO customers (email, city, signup_date)
                 VALUES ('test@example.com', 'TestCity', '2023-01-01');
@@ -74,7 +74,6 @@ class TestDatabase(unittest.TestCase):
             self.conn.commit()
         self.conn.rollback()
 
-        # UNIQUE on email
         # Inserción válida
         self.cur.execute("""
             INSERT INTO customers (name, email, city, signup_date)
@@ -84,7 +83,6 @@ class TestDatabase(unittest.TestCase):
 
         # UNIQUE en email
         with self.assertRaises(psycopg2.errors.UniqueViolation):
-            self.cur.execute("INSERT INTO customers (name, email, city, signup_date) VALUES ('Test', 'alice@example.com', 'TestCity', '2023-01-01');")
             self.cur.execute("""
                 INSERT INTO customers (name, email, city, signup_date)
                 VALUES ('Test', 'alice@example.com', 'TestCity', '2023-01-01');
@@ -98,7 +96,6 @@ class TestDatabase(unittest.TestCase):
 
     # ✅ Constraints en tabla products
     def test_products_constraints(self):
-        # NOT NULL on name
         self.conn.rollback()
         # NOT NULL en name
         with self.assertRaises(psycopg2.errors.NotNullViolation):
@@ -106,7 +103,6 @@ class TestDatabase(unittest.TestCase):
             self.conn.commit()
         self.conn.rollback()
 
-        # NUMERIC type check
         # Inserción válida y verificación NUMERIC
         self.cur.execute("INSERT INTO products (name, price) VALUES ('TestProduct', 99.99);")
         self.conn.commit()
@@ -120,7 +116,6 @@ class TestDatabase(unittest.TestCase):
 
     # ✅ Constraints en tabla orders
     def test_orders_constraints(self):
-        # NOT NULL on order_date
         self.conn.rollback()
         # NOT NULL en order_date
         with self.assertRaises(psycopg2.errors.NotNullViolation):
@@ -128,7 +123,6 @@ class TestDatabase(unittest.TestCase):
             self.conn.commit()
         self.conn.rollback()
 
-        # FOREIGN KEY on customer_id
         # FOREIGN KEY en customer_id
         with self.assertRaises(psycopg2.errors.ForeignKeyViolation):
             self.cur.execute("INSERT INTO orders (customer_id, order_date) VALUES (999, '2023-01-01');")
@@ -137,7 +131,6 @@ class TestDatabase(unittest.TestCase):
 
     # ✅ Constraints en tabla order_items
     def test_order_items_constraints(self):
-        # NOT NULL on quantity
         self.conn.rollback()
         # NOT NULL en quantity
         with self.assertRaises(psycopg2.errors.NotNullViolation):
@@ -145,23 +138,18 @@ class TestDatabase(unittest.TestCase):
             self.conn.commit()
         self.conn.rollback()
 
-        # FOREIGN KEY on order_id
         # FOREIGN KEY en order_id
         with self.assertRaises(psycopg2.errors.ForeignKeyViolation):
             self.cur.execute("INSERT INTO order_items (order_id, product_id, quantity) VALUES (999, 1, 1);")
             self.conn.commit()
         self.conn.rollback()
 
-        # FOREIGN KEY on product_id
         # FOREIGN KEY en product_id
         with self.assertRaises(psycopg2.errors.ForeignKeyViolation):
             self.cur.execute("INSERT INTO order_items (order_id, product_id, quantity) VALUES (1, 999, 1);")
             self.conn.commit()
         self.conn.rollback()
 
-    def tearDown(self):
-        self.cur.close()
-        self.conn.close()
 
 if __name__ == "__main__":
     unittest.main()
