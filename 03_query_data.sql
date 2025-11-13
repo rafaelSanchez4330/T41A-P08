@@ -28,8 +28,4 @@ JOIN order_items oi ON o.id = oi.order_id
 JOIN products p ON oi.product_id = p.id
 GROUP BY c.id, c.name
 ORDER BY total_gastado DESC;
-JOIN order_items oi ON oi.order_id = o.id
-JOIN products p ON p.id = oi.product_id
-GROUP BY c.id, c.name, o.id, o.order_date
-ORDER BY o.order_date;
 
